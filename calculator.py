@@ -265,6 +265,7 @@ class Calculator :
             case "sin": 
                 result = math.sin(num1)
             case "csc" :
+                # Verify that the number does not equal to Pi * n
                 if (math.pi - num1) % math.pi <= 0.01 :
                     raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
                 
@@ -272,13 +273,15 @@ class Calculator :
             case "cos": 
                 result = math.cos(num1)
             case "sec" :
-                if ((math.pi / 2) - num1) % (math.pi / 2) <= 0.01 :
-                    raise ZeroDivisionError("Error: secant is undefined at (1/2) * Pi * n.")
+                # Verify that the number does not equal to Pi * ((1/2) + n)
+                if (math.pi * ((1 / 2) + round(num1 / math.pi)) - num1) <= 0.01 :
+                    raise ZeroDivisionError("Error: secant is undefined at Pi * ((1/2) + n).")
                 
                 result = 1 / math.cos(num1)
             case "tan": 
                 result = math.tan(num1)
             case "cot" :
+                # Verify that the number does not equal to Pi * n
                 if (math.pi - num1) % math.pi <= 0.01 :
                     raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
 
