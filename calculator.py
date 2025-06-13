@@ -79,12 +79,12 @@ class Calculator :
             r"[xXe]|[pP][iI]))\s*[,]?\s*" + \
             r"(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum1>\d+)!)|" + \
-            r"(?P<operand1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))\s*" + \
+            r"(?P<num1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))\s*" + \
             r"(?P<operator>[-+/*^%])?\s*" + \
             r"(((?P<func2>\w+)\s*\(\s*(?P<arg3>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
             r"\s*[,]?\s*(?P<arg4>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum2>\d+)!)|" + \
-            r"(?P<operand2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))?"
+            r"(?P<num2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))?"
 
     # Regular expression for matching factorials. "M([+-RC])" - results in adding and
     # substracting the value to the memory cell, recalling and clearing the value
@@ -115,8 +115,8 @@ class Calculator :
     #
     def compute(self, entry) :
         result = 0.0
-        oper1 = 0.0
-        oper2 = 0.0
+        operand1 = 0.0
+        operand2 = 0.0
         mathExp = {}        # Dictionary of mathematical expression
 
         ## Verify if entry matches the pattern REGULAR_MATH
@@ -158,32 +158,45 @@ class Calculator :
         #    self._x = result
         # Verify if entry matches the pattern REGULAR_COMPLX_MATH
         if self._reComplx.fullmatch(entry) :
-            # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern          
+            # Retrieve the dictionary of matched groups that follow REGULAR_COMPLX_MATH
+            # pattern          
             mathExp = self._reComplx.fullmatch(entry).groupdict()
 
             if mathExp["func1"] is not None :
+                # Convert the values of keys arg1 and arg2 in dictionary to float
                 arg1 = self.convertToFloat(mathExp["arg1"])
                 arg2 = self.convertToFloat(mathExp["arg2"])
 
-                oper1 = self.calcFunc(mathExp["func1"], arg1, arg2)
+                # Compute the arithmetic expression
+                operand1 = self.calcFunc(mathExp["func1"], arg1, arg2)
             elif mathExp["factNum1"] is not None :
+                # Convert the value of the key factNum1 in dictionary to float
                 num = self.convertToFloat(mathExp["factNum1"])
-                oper1 = self.calcFact(num)
-            elif mathExp["operand1"] is not None :
-                oper1 = self.convertToFloat(mathExp["operand1"])
+
+                # Compute the factorial with the given number
+                operand1 = self.calcFact(num)
+            elif mathExp["num1"] is not None :
+                # Convert the value of key num1 in dictionary to float
+                operand1 = self.convertToFloat(mathExp["num1"])
 
             if mathExp["func2"] is not None :
+                # Convert the values of keys arg3 and arg4 in dictionary to float
                 arg3 = self.convertToFloat(mathExp["arg3"])
                 arg4 = self.convertToFloat(mathExp["arg4"])
 
-                oper2 = self.calcFunc(mathExp["func2"], arg3, arg4)
+                # Compute the arithmetic expression
+                operand2 = self.calcFunc(mathExp["func2"], arg3, arg4)
             elif mathExp["factNum2"] is not None :
+                # Convert the value of the key factNum2 in dictionary to float
                 num = self.convertToFloat(mathExp["factNum2"])
-                oper2 = self.calcFact(num)
-            elif mathExp["operand2"] is not None :
-                oper2 = self.convertToFloat(mathExp["operand2"])
 
-            result = self.calcArithmExpr(oper1, mathExp["operator"], oper2)
+                # Compute the factorial with the given number
+                operand2 = self.calcFact(num)
+            elif mathExp["num2"] is not None :
+                # Convert the value of key num2 in dictionary to float
+                operand2 = self.convertToFloat(mathExp["num2"])
+
+            result = self.calcArithmExpr(operand1, mathExp["operator"], operand2)
             self._x = result
         # Verify if entry matches the pattern REGULAR_MEM
         elif self._reMem.match(entry) :
@@ -224,6 +237,8 @@ class Calculator :
                     raise ZeroDivisionError("Error: Second operand is zero.")
 
                 result = num1 % num2
+            case None : 
+                result = num1
             case _: 
                 print("Error: Invalid operator:", operator)
         
