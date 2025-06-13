@@ -51,20 +51,40 @@ def main() :
 ## A calculator which computes simple mathematical expressions and functions
 #    
 class Calculator :
-    # Regular expression for matching numeric operations. First operand (\d+|[xXpe]) 
-    # (group 1) could be the number or x (previous result), second operand ([-+/*^%]) 
-    # (group 2) is the operator, the third (\d+) (group 3) - number.
+    # Regular expression for matching arithmetic operations. First operand  
+    # (\d+|[xXe]|[pP][iI]) (operand1) could be the number or x (previous result), or e,   
+    # or Pi, second group ([-+/*^%]) (operator) is the operator, the third 
+    # (\d+|[xXe]|[pP][iI]) (operand2) - the number, or x, or e, or Pi.
     REGULAR_MATH = r"(?P<operand1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))\s*" + \
                     r"(?P<operator>[-+/*^%])\s*" + \
-                    r"(?P<operand2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))$"   
+                    r"(?P<operand2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))"   
 
-    # Regular expression for matching functions. First operand is the word (function name 
-    # (\w+) ), second (\d+) - the regular number.
+    # Regular expression for matching functions. First group (func) is the function name  
+    # (function name (\w+)), second group (\d+|[xXe]|[pP][iI]) (arg1) - the first  
+    # argument, the third group (\d+|[xXe]|[pP][iI]) (arg2) – the second argument.
     REGULAR_FUNC = r"(?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
-                    r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\)$"
+                    r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\)"
     
     # Regular expression for matching factorials. (\d+) represents the number.
     REGULAR_FACT = r"(?P<factNum>\d+)!"
+
+    # Regular expression for matching arithmetic operations whose operands can be
+    # mathematical functions or factorials. First group of the expression is the 
+    # first operand that is either a function (func1), a number (operand1, 
+    # which could also be x (previous result), or e, or Pi), or a factorial (factNum1).
+    # The second group ([-+/*^%]) (operator) is the operator whereas the third group  
+    # (\d+|[xXe]|[pP][iI]) (operand2) is either a function (func2), a number (operand2
+    # which could also be x, or e, or Pi), or a factorial (factNum2).
+    REGULAR_COMPLX_MATH = r"(((?P<func1>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|" + \
+            r"[xXe]|[pP][iI]))\s*[,]?\s*" + \
+            r"(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
+            r"((?P<factNum1>\d+)!)|" + \
+            r"(?P<num1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))\s*" + \
+            r"(?P<operator>[-+/*^%])?\s*" + \
+            r"(((?P<func2>\w+)\s*\(\s*(?P<arg3>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
+            r"\s*[,]?\s*(?P<arg4>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
+            r"((?P<factNum2>\d+)!)|" + \
+            r"(?P<num2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))?"
 
     # Regular expression for matching factorials. "M([+-RC])" - results in adding and
     # substracting the value to the memory cell, recalling and clearing the value
@@ -78,8 +98,10 @@ class Calculator :
         self._x = 0.0         # Stored result
         self._memory = 0.0    # Memory cell
 
-        # Compiles the regex pattern for arithetic expressions
+        # Compiles the regex pattern for arithmetic expressions
         self._reArithm = re.compile(self.REGULAR_MATH)
+        # Compiles the regex pattern for complex arithmetic expressions
+        self._reComplx = re.compile(self.REGULAR_COMPLX_MATH)
         # Compiles the regex pattern for functions  
         self._reFunc = re.compile(self.REGULAR_FUNC)
         # Compiles the regex pattern for factorial
@@ -93,46 +115,88 @@ class Calculator :
     #
     def compute(self, entry) :
         result = 0.0
-        num1 = 0.0
-        num2 = 0.0
+        operand1 = 0.0
+        operand2 = 0.0
         mathExp = {}        # Dictionary of mathematical expression
 
-        # Verify if entry matches the pattern REGULAR_MATH
-        if self._reArithm.match(entry) :
-            # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern          
-            mathExp = self._reArithm.match(entry).groupdict()
+        ## Verify if entry matches the pattern REGULAR_MATH
+        #if self._reArithm.match(entry) :
+        #    # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern          
+        #    mathExp = self._reArithm.match(entry).groupdict()
+        #
+        #    # Convert the values of keys in dictionary to float 
+        #    num1 = self.convertToFloat(mathExp["operand1"])            
+        #    num2 = self.convertToFloat(mathExp["operand2"])       
+        #
+        #    # Compute the arithmetic expression 
+        #    result = self.calcArithmExpr(num1, mathExp["operator"], num2)
+        #    # Save the computed result in the class variable x
+        #    self._x = result
+        ## Verify if entry matches the pattern REGULAR_FUNC
+        #elif self._reFunc.match(entry) : 
+        #    # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern     
+        #    mathExp = self._reFunc.match(entry).groupdict()
+        #
+        #    # Convert the values of keys in dictionary to float
+        #    num1 = self.convertToFloat(mathExp["arg1"])            
+        #    num2 = self.convertToFloat(mathExp["arg2"])            
+        #
+        #    # Get the value of the mathematical function with entered parameters
+        #    result = self.calcFunc(mathExp["func"], num1, num2)
+        #    # Save the computed result in the class variable x
+        #    self._x = result
+        ## Verify if entry matches the pattern REGULAR_FACT
+        #elif self._reFact.match(entry) :       
+        #    mathExp = self._reFact.match(entry).groupdict()
+        #
+        #    # Convert the value of the key in dictionary to float
+        #    num1 = self.convertToFloat(mathExp["factNum"])
+        #
+        #    # Compute the factorial with the given number
+        #    result = self.calcFact(num1)
+        #    # Save the computed result in the class variable x
+        #    self._x = result
+        # Verify if entry matches the pattern REGULAR_COMPLX_MATH
+        if self._reComplx.fullmatch(entry) :
+            # Retrieve the dictionary of matched groups that follow REGULAR_COMPLX_MATH
+            # pattern          
+            mathExp = self._reComplx.fullmatch(entry).groupdict()
 
-            # Convert the values of keys in dictionary to float 
-            num1 = self.convertToFloat(mathExp["operand1"])            
-            num2 = self.convertToFloat(mathExp["operand2"])       
+            if mathExp["func1"] is not None :
+                # Convert the values of keys arg1 and arg2 in dictionary to float
+                arg1 = self.convertToFloat(mathExp["arg1"])
+                arg2 = self.convertToFloat(mathExp["arg2"])
 
-            # Compute the arithmetic expression 
-            result = self.calcArithmExpr(num1, mathExp["operator"], num2)
-            # Save the computed result in the class variable x
-            self._x = result
-        # Verify if entry matches the pattern REGULAR_FUNC
-        elif self._reFunc.match(entry) : 
-            # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern     
-            mathExp = self._reFunc.match(entry).groupdict()
+                # Compute the arithmetic expression
+                operand1 = self.calcFunc(mathExp["func1"], arg1, arg2)
+            elif mathExp["factNum1"] is not None :
+                # Convert the value of the key factNum1 in dictionary to float
+                num = self.convertToFloat(mathExp["factNum1"])
 
-            # Convert the values of keys in dictionary to float
-            num1 = self.convertToFloat(mathExp["arg1"])            
-            num2 = self.convertToFloat(mathExp["arg2"])            
+                # Compute the factorial with the given number
+                operand1 = self.calcFact(num)
+            elif mathExp["num1"] is not None :
+                # Convert the value of key num1 in dictionary to float
+                operand1 = self.convertToFloat(mathExp["num1"])
 
-            # Get the value of the mathematical function with entered parameters
-            result = self.calcFunc(mathExp["func"], num1, num2)
-            # Save the computed result in the class variable x
-            self._x = result
-        # Verify if entry matches the pattern REGULAR_FACT
-        elif self._reFact.match(entry) :       
-            mathExp = self._reFact.match(entry).groupdict()
+            if mathExp["func2"] is not None :
+                # Convert the values of keys arg3 and arg4 in dictionary to float
+                arg3 = self.convertToFloat(mathExp["arg3"])
+                arg4 = self.convertToFloat(mathExp["arg4"])
 
-            # Convert the value of the key in dictionary to float
-            num1 = self.convertToFloat(mathExp["factNum"])
+                # Compute the arithmetic expression
+                operand2 = self.calcFunc(mathExp["func2"], arg3, arg4)
+            elif mathExp["factNum2"] is not None :
+                # Convert the value of the key factNum2 in dictionary to float
+                num = self.convertToFloat(mathExp["factNum2"])
 
-            # Compute the factorial with the given number
-            result = self.calcFact(num1)
-            # Save the computed result in the class variable x
+                # Compute the factorial with the given number
+                operand2 = self.calcFact(num)
+            elif mathExp["num2"] is not None :
+                # Convert the value of key num2 in dictionary to float
+                operand2 = self.convertToFloat(mathExp["num2"])
+
+            result = self.calcArithmExpr(operand1, mathExp["operator"], operand2)
             self._x = result
         # Verify if entry matches the pattern REGULAR_MEM
         elif self._reMem.match(entry) :
@@ -173,6 +237,8 @@ class Calculator :
                     raise ZeroDivisionError("Error: Second operand is zero.")
 
                 result = num1 % num2
+            case None : 
+                result = num1
             case _: 
                 print("Error: Invalid operator:", operator)
         
@@ -199,6 +265,7 @@ class Calculator :
             case "sin": 
                 result = math.sin(num1)
             case "csc" :
+                # Verify that the number does not equal to Pi * n
                 if (math.pi - num1) % math.pi <= 0.01 :
                     raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
                 
@@ -206,13 +273,15 @@ class Calculator :
             case "cos": 
                 result = math.cos(num1)
             case "sec" :
-                if ((math.pi / 2) - num1) % (math.pi / 2) <= 0.01 :
-                    raise ZeroDivisionError("Error: secant is undefined at (1/2) * Pi * n.")
+                # Verify that the number does not equal to Pi * ((1/2) + n)
+                if (math.pi * ((1 / 2) + round(num1 / math.pi)) - num1) <= 0.01 :
+                    raise ZeroDivisionError("Error: secant is undefined at Pi * ((1/2) + n).")
                 
                 result = 1 / math.cos(num1)
             case "tan": 
                 result = math.tan(num1)
             case "cot" :
+                # Verify that the number does not equal to Pi * n
                 if (math.pi - num1) % math.pi <= 0.01 :
                     raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
 
