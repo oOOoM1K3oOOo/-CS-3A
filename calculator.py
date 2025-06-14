@@ -19,16 +19,16 @@ def main() :
 
     calc = Calculator()
     
-    print("This program is a calculator which computes simple mathematical")
-    print("expressions and functions.") 
-    print()
-    print("* For the information about legal syntax and supported functions write")
-    print("* \"help\" in the command line.")
-    print()
-    print("* To exit from the calculator, write \"quit\" in the command line.")
-    print()
+    #print("This program is a calculator which computes simple mathematical")
+    #print("expressions and functions.") 
+    #print()
+    #print("* For the information about legal syntax and supported functions write")
+    #print("* \"help\" in the command line.")
+    #print()
+    #print("* To exit from the calculator, write \"quit\" in the command line.")
+    #print()
 
-    calc.help()
+    #calc.help()
 
     while entry != "quit" :
         entry = input("[x = %s]: " % calc.getX())
@@ -85,6 +85,12 @@ class Calculator :
             r"\s*[,]?\s*(?P<arg4>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum2>\d+)!)|" + \
             r"(?P<num2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))?"
+    
+    REGULAR_ARITHM = r"(?P<operator>[-+/*^%])?\s*(((?P<func>\w+)\s*\(\s*" + \
+            r"(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))\s*[,]?\s*" + \
+            r"(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
+            r"((?P<factNum>\d+)!)|" + \
+            r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))"
 
     # Regular expression for matching factorials. "M([+-RC])" - results in adding and
     # substracting the value to the memory cell, recalling and clearing the value
@@ -382,7 +388,50 @@ class Calculator :
                     num = float(val) 
         
         return num
+        
+    ## Converts the arithmetic expression to reverse Polish notation
+    #  @param self reference to the instance of a class
+    #  @param arithmExpr original arithmetic expression
+    #  @return list of operands and operators in reverse Polish notation
+    #
+    def convertToPolish(self, arithmExpr) :
+        OPERATOR_PRIORITY = {"(": 1, "+": 2, "-" : 2, "*" : 3, "/": 3, "%" : 3, "^": 4}
+        OPERATORS = "()+-*/%^"
 
+        mathExp = []
+        operatorStack = []
+
+
+        for elem in arithmExpr :        
+            if self.isFloat(elem) :            
+                    mathExp.append(elem)
+            elif elem in OPERATORS :
+                if elem == "(" :
+                    operatorStack.append(elem)
+                elif elem == ")" :
+                    while len(operatorStack) > 0 and operatorStack[-1] != "(" :
+                        mathExp.append(operatorStack.pop())
+
+                    operatorStack.pop()
+                else :
+                    while len(operatorStack) > 0 and OPERATOR_PRIORITY[elem] < OPERATOR_PRIORITY[operatorStack[-1]] :
+                            mathExp.append(operatorStack.pop())
+
+                    operatorStack.append(elem)
+            else :  
+                raise OSError("Error: Invalid expression:", elem)
+
+        while len(operatorStack) > 0 :
+            if operatorStack[-1] == "(" :
+                operatorStack.pop()
+            else :
+                mathExp.append(operatorStack.pop())
+
+        if len(mathExp) < 3 : 
+            raise OSError("Error: Not enough operators.")
+    
+        return mathExp
+    
     ## Validates that the string is a rational number
     #  @param self reference to the instance of a class
     #  @param entry a string
