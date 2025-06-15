@@ -47,6 +47,10 @@ def main() :
                     print()
                     print(str(exception))
                     print()
+                except OSError as exception : 
+                    print()
+                    print(str(exception))
+                    print()
 
 ## A calculator which computes simple mathematical expressions and functions
 #    
@@ -86,16 +90,30 @@ class Calculator :
             r"((?P<factNum2>\d+)!)|" + \
             r"(?P<num2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))?"
     
-    REGULAR_ARITHM = r"(?P<operator>[-+/*^%])?\s*(((?P<func>\w+)\s*\(\s*" + \
-            r"(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))\s*[,]?\s*" + \
-            r"(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
+    # Regular expression for matching complex arithmetic operations whose operands can 
+    # be mathematical functions or factorials and whose order is defined by the 
+    # parentheses. First group of the expression (parLeft) is an optional opening  
+    # parentheses which define the order of the mathematical operations. The second 
+    # group ([-+/*^%]) (operator), optional, is the operator whereas the third – an 
+    # operand that is either a function (func), a number (operand, which could also 
+    # be x (previous result), or e, or Pi), a factorial (factNum), or a variable (var).
+    # The fourth group (parRight) is an optional opening parentheses.
+    REGULAR_ARITHM = r"(?P<parLeft>\()?\s*" + \
+            r"(?P<operator>[-+/*^%])?\s*" + \
+            r"(((?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
+            r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum>\d+)!)|" + \
-            r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI])))"
+            r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
+            r"(?P<var>\w+))\s*" + \
+            r"(?P<parRight>\()?"
 
     # Regular expression for matching factorials. "M([+-RC])" - results in adding and
     # substracting the value to the memory cell, recalling and clearing the value
     # stored in the memory cell
     REGULAR_MEM = r"M([+-RC])"  
+
+    # Precedence of operators in a mathematical expression
+    OPERATOR_PREC = {"(": 1, "+": 2, "-" : 2, "*" : 3, "/": 3, "%" : 3, "^": 4}
 
     ## Creates the stored result and memory cell
     #  @param self reference to the instance of a class
@@ -395,40 +413,36 @@ class Calculator :
     #  @return list of operands and operators in reverse Polish notation
     #
     def convertToPolish(self, arithmExpr) :
-        OPERATOR_PRIORITY = {"(": 1, "+": 2, "-" : 2, "*" : 3, "/": 3, "%" : 3, "^": 4}
-        OPERATORS = "()+-*/%^"
-
         mathExp = []
         operatorStack = []
 
-
         for elem in arithmExpr :        
             if self.isFloat(elem) :            
-                    mathExp.append(elem)
-            elif elem in OPERATORS :
-                if elem == "(" :
-                    operatorStack.append(elem)
-                elif elem == ")" :
-                    while len(operatorStack) > 0 and operatorStack[-1] != "(" :
-                        mathExp.append(operatorStack.pop())
+                mathExp.append(elem)
+            elif elem == "(" :
+                operatorStack.append(elem)
+            elif elem == ")" :
+                while len(operatorStack) > 0 and operatorStack[-1] != "(" :
+                    mathExp.append(operatorStack.pop())
 
+                if len(operatorStack) > 0 :
                     operatorStack.pop()
-                else :
-                    while len(operatorStack) > 0 and OPERATOR_PRIORITY[elem] < OPERATOR_PRIORITY[operatorStack[-1]] :
-                            mathExp.append(operatorStack.pop())
+            elif elem in self.OPERATOR_PREC :
+                while len(operatorStack) > 0 and self.OPERATOR_PREC[elem] <= self.OPERATOR_PREC[operatorStack[-1]] :
+                    mathExp.append(operatorStack.pop())
 
-                    operatorStack.append(elem)
+                operatorStack.append(elem)
             else :  
                 raise OSError("Error: Invalid expression:", elem)
 
         while len(operatorStack) > 0 :
-            if operatorStack[-1] == "(" :
-                operatorStack.pop()
-            else :
-                mathExp.append(operatorStack.pop())
+            operator = operatorStack.pop()
 
-        if len(mathExp) < 3 : 
-            raise OSError("Error: Not enough operators.")
+            if operator != "(" :
+                mathExp.append(operator)
+
+        if len(mathExp) % 2 == 0 : 
+            raise OSError("Error: Not enough operands.")
     
         return mathExp
     
