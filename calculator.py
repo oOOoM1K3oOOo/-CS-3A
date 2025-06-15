@@ -79,7 +79,7 @@ class Calculator :
     # The second group ([-+/*^%]) (operator) is the operator whereas the third group  
     # (\d+|[xXe]|[pP][iI]) (operand2) is either a function (func2), a number (operand2
     # which could also be x, or e, or Pi), or a factorial (factNum2).
-    REGULAR_COMPLX_MATH = r"(((?P<func1>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|" + \
+    REGULAR_ARITHM = r"(((?P<func1>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|" + \
             r"[xXe]|[pP][iI]))\s*[,]?\s*" + \
             r"(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum1>\d+)!)|" + \
@@ -98,22 +98,48 @@ class Calculator :
     # operand that is either a function (func), a number (operand, which could also 
     # be x (previous result), or e, or Pi), a factorial (factNum), or a variable (var).
     # The fourth group (parRight) is an optional opening parentheses.
-    REGULAR_ARITHM = r"(?P<parLeft>\()?\s*" + \
+    REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
+            r"((?P<parLeft>\()?\s*" + \
             r"(?P<operator>[-+/*^%])?\s*" + \
             r"(((?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
             r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum>\d+)!)|" + \
             r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
-            r"(?P<parRight>\()?"
+            r"((?P<comma>,)|" + \
+            r"(?P<parRight>\)))?)"
 
     # Regular expression for matching factorials. "M([+-RC])" - results in adding and
     # substracting the value to the memory cell, recalling and clearing the value
     # stored in the memory cell
-    REGULAR_MEM = r"M([+-RC])"  
+    REGULAR_MEM = r"M([+-RC])"
+
+    # A list of mathematical function which contains the mathematical function names as 
+    # a key and executable functions with parameters as the values for those keys 
+    FUNCTIONS = {
+        "sin" : lambda arg1: math.sin(arg1),
+        "csc" : lambda arg1: 1 / math.sin(arg1),
+        "cos" : lambda arg1: math.cos(arg1),
+        "sec" : lambda arg1: 1 / math.cos(arg1),
+        "tan" : lambda arg1: math.tan(arg1),
+        "cot" : lambda arg1: 1 / math.cot(arg1),
+        "arcsin" : lambda arg1: math.asin(arg1),
+        "arccos" : lambda arg1: math.acos(arg1),
+        "arctan" : lambda arg1: math.atan(arg1),
+        "sqrt" : lambda arg1: math.sqrt(arg1),
+        "log" : lambda arg1, arg2: math.log(arg1, arg2),
+        "ln" : lambda arg1: math.log(arg1),
+        "round" : lambda arg1, arg2: round(arg1, arg2),
+        "rad" : lambda arg1: math.radians(arg1),
+        "deg" : lambda arg1: math.degrees(arg1),
+        "bin" : lambda arg1: bin(arg1),
+        "hex" : lambda arg1: hex(arg1),
+        "neg" : lambda arg1: (-1) * arg1,
+        "abrt" : lambda arg1, arg2: arg1 ** (1 / arg2),
+        }
 
     # Precedence of operators in a mathematical expression
-    OPERATOR_PREC = {"(": 1, "+": 2, "-" : 2, "*" : 3, "/": 3, "%" : 3, "^": 4}
+    OPERATOR_PREC = {"(": 1, "+": 2, "-" : 2, "*" : 3, "/": 3, "%" : 3, "^": 4, "!" : 5}
 
     ## Creates the stored result and memory cell
     #  @param self reference to the instance of a class
@@ -139,89 +165,10 @@ class Calculator :
     #
     def compute(self, entry) :
         result = 0.0
-        operand1 = 0.0
-        operand2 = 0.0
-        mathExp = {}        # Dictionary of mathematical expression
+        mathExp = []        # Dictionary of mathematical expression
 
-        ## Verify if entry matches the pattern REGULAR_MATH
-        #if self._reArithm.match(entry) :
-        #    # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern          
-        #    mathExp = self._reArithm.match(entry).groupdict()
-        #
-        #    # Convert the values of keys in dictionary to float 
-        #    num1 = self.convertToFloat(mathExp["operand1"])            
-        #    num2 = self.convertToFloat(mathExp["operand2"])       
-        #
-        #    # Compute the arithmetic expression 
-        #    result = self.calcArithmExpr(num1, mathExp["operator"], num2)
-        #    # Save the computed result in the class variable x
-        #    self._x = result
-        ## Verify if entry matches the pattern REGULAR_FUNC
-        #elif self._reFunc.match(entry) : 
-        #    # Retrieve the dictionary of matched groups that follow REGULAR_MATH pattern     
-        #    mathExp = self._reFunc.match(entry).groupdict()
-        #
-        #    # Convert the values of keys in dictionary to float
-        #    num1 = self.convertToFloat(mathExp["arg1"])            
-        #    num2 = self.convertToFloat(mathExp["arg2"])            
-        #
-        #    # Get the value of the mathematical function with entered parameters
-        #    result = self.calcFunc(mathExp["func"], num1, num2)
-        #    # Save the computed result in the class variable x
-        #    self._x = result
-        ## Verify if entry matches the pattern REGULAR_FACT
-        #elif self._reFact.match(entry) :       
-        #    mathExp = self._reFact.match(entry).groupdict()
-        #
-        #    # Convert the value of the key in dictionary to float
-        #    num1 = self.convertToFloat(mathExp["factNum"])
-        #
-        #    # Compute the factorial with the given number
-        #    result = self.calcFact(num1)
-        #    # Save the computed result in the class variable x
-        #    self._x = result
-        # Verify if entry matches the pattern REGULAR_COMPLX_MATH
-        if self._reComplx.fullmatch(entry) :
-            # Retrieve the dictionary of matched groups that follow REGULAR_COMPLX_MATH
-            # pattern          
-            mathExp = self._reComplx.fullmatch(entry).groupdict()
-
-            if mathExp["func1"] is not None :
-                # Convert the values of keys arg1 and arg2 in dictionary to float
-                arg1 = self.convertToFloat(mathExp["arg1"])
-                arg2 = self.convertToFloat(mathExp["arg2"])
-
-                # Compute the arithmetic expression
-                operand1 = self.calcFunc(mathExp["func1"], arg1, arg2)
-            elif mathExp["factNum1"] is not None :
-                # Convert the value of the key factNum1 in dictionary to float
-                num = self.convertToFloat(mathExp["factNum1"])
-
-                # Compute the factorial with the given number
-                operand1 = self.calcFact(num)
-            elif mathExp["num1"] is not None :
-                # Convert the value of key num1 in dictionary to float
-                operand1 = self.convertToFloat(mathExp["num1"])
-
-            if mathExp["func2"] is not None :
-                # Convert the values of keys arg3 and arg4 in dictionary to float
-                arg3 = self.convertToFloat(mathExp["arg3"])
-                arg4 = self.convertToFloat(mathExp["arg4"])
-
-                # Compute the arithmetic expression
-                operand2 = self.calcFunc(mathExp["func2"], arg3, arg4)
-            elif mathExp["factNum2"] is not None :
-                # Convert the value of the key factNum2 in dictionary to float
-                num = self.convertToFloat(mathExp["factNum2"])
-
-                # Compute the factorial with the given number
-                operand2 = self.calcFact(num)
-            elif mathExp["num2"] is not None :
-                # Convert the value of key num2 in dictionary to float
-                operand2 = self.convertToFloat(mathExp["num2"])
-
-            result = self.calcArithmExpr(operand1, mathExp["operator"], operand2)
-            self._x = result
+        if self._reComplx.match(entry) :
+            mathExp = self.retrieveExprList(entry)
         # Verify if entry matches the pattern REGULAR_MEM
         elif self._reMem.match(entry) :
             # Perform the memory operation with the given operation name        
@@ -236,10 +183,10 @@ class Calculator :
     ## Calculates the arithmetic expression
     #  @param num1 first operand
     #  @param operator function operator
-    #  @param num2 second operand
+    #  @param num2 second operand (None when factorial is computed)
     #  @return result of mathematical operation 
     #
-    def calcArithmExpr(self, num1, operator, num2) :
+    def calcArithmExpr(self, num1, operator, num2 = None) :
         result = self._x
 
         match operator : 
@@ -261,10 +208,18 @@ class Calculator :
                     raise ZeroDivisionError("Error: Second operand is zero.")
 
                 result = num1 % num2
+            case "!" : 
+                # Verify that the number is a whole number
+                if not self.isIntegerNum(num1) :
+                    raise ValueError("Error: the number for factorial must be a whole number.")
+                
+                result = self.calcFact(num1)
             case None : 
                 result = num1
-            case _: 
+            case _:
+                print() 
                 print("Error: Invalid operator:", operator)
+                print()
         
         return result
     
@@ -272,7 +227,7 @@ class Calculator :
     #  @param self reference to the instance of a class
     #  @param num a whole number
     #
-    def calcFact(self, num) :
+    def calcFact(self, num) :      
         return num * self.calcFact(abs(num) - 1) if abs(num) != 0 else 1 
     
     ## Evaluates and calculates the value of mathematical function with given parameters
@@ -285,72 +240,51 @@ class Calculator :
     def calcFunc(self, function, num1, num2 = None) :
         result = self._x
 
-        match function : 
-            case "sin": 
-                result = math.sin(num1)
-            case "csc" :
-                # Verify that the number does not equal to Pi * n
-                if (math.pi - num1) % math.pi <= 0.01 :
-                    raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
-                
-                result = 1 / math.sin(num1)
-            case "cos": 
-                result = math.cos(num1)
-            case "sec" :
-                # Verify that the number does not equal to Pi * ((1/2) + n)
-                if (math.pi * ((1 / 2) + round(num1 / math.pi)) - num1) <= 0.01 :
-                    raise ZeroDivisionError("Error: secant is undefined at Pi * ((1/2) + n).")
-                
-                result = 1 / math.cos(num1)
-            case "tan": 
-                result = math.tan(num1)
-            case "cot" :
-                # Verify that the number does not equal to Pi * n
-                if (math.pi - num1) % math.pi <= 0.01 :
-                    raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
+        if function in self.FUNCTIONS :
+            match function :
+                case "csc" :
+                    # Verify that the number does not equal to Pi * n
+                    if (math.pi - num1) % math.pi <= 0.01 :
+                        raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
 
-                result = 1 / math.tan(num1)
-            case "arcsin" :
-                result = math.asin(num1)
-            case "arccos" :
-                result = math.acos(num1)
-            case "arctan" :
-                result = math.atan(num1)
-            case "sqrt":
-                result = math.sqrt(num1)
-            case "log":
-                if num2 is None :
-                    num2 = 10
-                 
-                result = math.log(num1, num2)
-            case "ln": 
-                result = math.log(num1)
-            case "round" :
-                if num2 is None :
-                    num2 = 2
+                    result = self.FUNCTIONS[function](num1)
+                case "sec" :
+                    # Verify that the number does not equal to Pi * ((1/2) + n)
+                    if (math.pi * ((1 / 2) + round(num1 / math.pi)) - num1) <= 0.01 :
+                        raise ZeroDivisionError("Error: secant is undefined at Pi * ((1/2) + n).")
 
-                result = round(num1, int(num2))
-            case "rad": 
-                result = math.radians(num1)
-            case "deg": 
-                result = math.degrees(num1)
-            case "bin":
-                result = bin(int(num1))
-            case "hex":
-                result = hex(int(num1)) 
-            case "neg": 
-                result = (-1) * num1
-            case "abrt":
-                if num2 is None :
-                    raise ValueError("Error: no second argument was passed to abrt() function.")
-                elif num2 == 0 :
-                    raise ZeroDivisionError("Error: second argument of abrt() function is zero.")
-                
-                result = num1 ** (1 / num2)
-            case _:
-                print()
-                print("Error: Invalid expression:", function)
-                print()
+                    result = self.FUNCTIONS[function](num1)
+                case "cot" :
+                    # Verify that the number does not equal to Pi * n
+                    if (math.pi - num1) % math.pi <= 0.01 :
+                        raise ZeroDivisionError("Error: cosecant is undefined at Pi * n.")
+
+                    result = self.FUNCTIONS[function](num1)
+                case "log":
+                    if num2 is None :
+                        num2 = 10
+
+                    result = self.FUNCTIONS[function](num1, num2)
+                case "ln": 
+                    result = math.log(num1)
+                case "round" :
+                    if num2 is None :
+                        num2 = 2
+
+                    result = self.FUNCTIONS[function](num1, num2)
+                case "abrt":
+                    if num2 is None :
+                        raise ValueError("Error: no second argument was passed to abrt() function.")
+                    elif num2 == 0 :
+                        raise ZeroDivisionError("Error: second argument of abrt() function is zero.")
+
+                    result = self.FUNCTIONS[function](num1, num2)
+                case _:
+                    result = self.FUNCTIONS[function](num1)
+        else : 
+            print()
+            print("Error: Invalid expression:", function)
+            print()
             
         return result
     
@@ -446,6 +380,67 @@ class Calculator :
     
         return mathExp
     
+    ## Parses through the mathematical expression and converts it to a list of 
+    ## operands and operators
+    #  @param self reference to the instance of a class
+    #  @param entry mathematical expression
+    #  @return list of operands and operators
+    #
+    def retrieveExprList(self, entry) :
+        mathExp = []
+
+        for item in self._reComplx.finditer(entry) :
+                # Retrieve the dictionary with the named subgroups of the match
+                token = item.groupdict()
+
+                # Verify if the opening parentheses are present in the expression
+                if token["parLeft"] is not None :
+                    # Add the opening parentheses to the mathematical expression stack
+                    mathExp.append(token["parLeft"])
+
+                # Verify if the operator is present in the expression
+                if token["operator"] : 
+                    # Add the operator to the mathematical expression stack
+                    mathExp.append(token["operator"])
+
+                # Verify if a function with arguments is present in the expression
+                if token["func"] is not None :
+                    # Convert the values of keys arg1 and arg2 in dictionary to float
+                    arg1 = self.convertToFloat(token["arg1"])
+                    arg2 = self.convertToFloat(token["arg2"])
+
+                    # Compute the mathematical function with given arguments
+                    operand = self.calcFunc(token["func"], arg1, arg2)
+
+                    # Add the calculated result to the mathematical expression stack
+                    mathExp.append(operand)
+                # Verify if a factorial is present in the expression
+                elif token["factNum"] is not None :
+                    # Convert the value of the key factNum1 in dictionary to float
+                    num = self.convertToFloat(token["factNum"])
+
+                    # Compute the factorial with the given number
+                    operand = self.calcFact(num)
+                    
+                    # Add the calculated factorial to the mathematical expression stack
+                    mathExp.append(operand)
+                # Verify if a number are present in the expression
+                elif token["num"] is not None :
+                    # Convert the value of key num1 in dictionary to float
+                    operand = self.convertToFloat(token["num"])
+
+                    # Add the number to the mathematical expression stack
+                    mathExp.append(operand)
+                # Verify if unknown operand are present in the expression
+                elif token["var"] is not None :
+                    raise ValueError("Error: Invalid operand:", token["var"])
+
+                if token["parRight"] is not None :
+                    # Add the closing parentheses to the mathematical expression stack
+                    mathExp.append(token["parRight"])
+
+        return mathExp
+    
     ## Validates that the string is a rational number
     #  @param self reference to the instance of a class
     #  @param entry a string
@@ -456,7 +451,7 @@ class Calculator :
         startPos = 0
 
         # Verify that the string is not empty
-        if len(entry) != 0 :
+        if len(entry) > 0 :
             # Verify that the string starts with +- and increment the starting pos by 1
             if entry.startswith("+-") :
                 startPos = 1
@@ -492,6 +487,14 @@ class Calculator :
                 isValidEntry = True
         
         return isValidEntry
+    
+    ## Validates that the number is a whole number
+    #  @param self reference to the instance of a class
+    #  @param num a number
+    #  @return True if the number is a whole number else False
+    #
+    def isIntegerNum(self, num) :    
+        return num % 1 == 0
     
     ## Retrieves the value of variable x
     #  @return value of x
