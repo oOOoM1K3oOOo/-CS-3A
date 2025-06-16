@@ -155,7 +155,7 @@ class Calculator :
         "sqrt" : lambda arg1: math.sqrt(arg1),
         "log" : lambda arg1, arg2: math.log(arg1, arg2),
         "ln" : lambda arg1: math.log(arg1),
-        "round" : lambda arg1, arg2: round(arg1, arg2),
+        "round" : lambda arg1, arg2: round(arg1, int(arg2)),
         "rad" : lambda arg1: math.radians(arg1),
         "deg" : lambda arg1: math.degrees(arg1),
         "bin" : lambda arg1: bin(arg1),
@@ -191,19 +191,63 @@ class Calculator :
             mathExp = self.retrieveExprList(entry)
 
             print(mathExp)
-            ##
-            #  Account that the number of operators is greater than number operands
-            ##
-            if len(mathExp) > 0  : # and self.isValidExpr(mathExp) :
+
+            if len(mathExp) > 0  :
+                isTwoArgs = False 
+
+                operands = []
+
+                # Convert the mathematical expression (in infix notaion) to reverse 
+                # Polish (postfix) notation 
                 mathExp = self.convertToPolish(mathExp)
 
+                print(mathExp)
+                
 
+                for elem in mathExp:
+                    # Add the operand to the operand stack if it is a number
+                    if elem not in self.OPERATOR_PREC and elem not in self.FUNCTIONS and elem != ",":
+                        operands.append(elem)
+                    elif elem in self.OPERATOR_PREC :
+                        if elem == "!" :
+                            # Retrieve the number for factorial function
+                            factNum = operands.pop()
+
+                            # Add the result of the factorial operation to the operands stack
+                            operands.append(self.calcFact(factNum))
+                        else :
+                            # Retrieve the first and second operand of the arithmetic expression
+                            rightValue = operands.pop()
+                            leftValue = operands.pop()
+
+                            # Add the result of the arithmetic operation to the operand stack
+                            operands.append(self.calcArithmExpr(leftValue, elem, rightValue))
+                    elif elem == "," :
+                        isTwoArgs = True
+                    else :
+                        arg2 = None 
+
+                        # Verify that the function has two arguments in the mathematical
+                        # expression list
+                        if isTwoArgs :
+                            # Retireve the second argument of the function
+                            arg2 = operands.pop()
+                            # Clear the flag for retrieving two arguments from the list
+                            isTwoArgs = False
+
+                        # Retrieve the first argument of the function
+                        arg1 = operands.pop()
+                        
+                        # Add the result of the function with two agruments to the 
+                        # operand stack
+                        operands.append(self.calcFunc(elem, arg1, arg2))
+    
+                result = operands.pop()
+                self._x = result
         else :
             print()
             print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
             print()
-
-        print(mathExp)
 
         return result
     
@@ -265,7 +309,7 @@ class Calculator :
                             # Add the function name to the mathematical expression stack
                             mathExp.append(token["var"])
                         else :
-                            raise ValueError("Invalid operand: %s" % token["var"])
+                            raise ValueError("Invalid function name: %s" % token["var"])
                     
                     # Verify if a comma is present in the current match
                     if token["comma"] is not None :
@@ -397,6 +441,9 @@ class Calculator :
                 case "round" :
                     if num2 is None :
                         num2 = 2
+                    elif num2 % 1 != 0 :
+                        raise ValueError("Error: the second agrument for round() " +  
+                                         "function must be an integer")
 
                     result = self.FUNCTIONS[function](num1, num2)
                 case "abrt":
@@ -486,8 +533,9 @@ class Calculator :
             elif elem == "(" :
                 # Add the opening parentheses to the operator stack
                 operatorStack.append(elem)
-            # Verify that the element of the expression is the closing parentheses
-            elif elem == ")" : 
+            # Verify that the element of the expression is the closing parentheses 
+            # or a comma
+            elif elem == ")" or elem == "," : 
                 # While the operator stack is not empty and the last element of the stack 
                 # is an operator, add the operator from the operator stack to the new list for 
                 # mathematical expression in reverse Polish notation
@@ -495,9 +543,12 @@ class Calculator :
                     mathExp.append(operatorStack.pop())
                 
                 # Pop the opening parentheses from the operator stack if the operator 
-                # stack is not empty 
-                if len(operatorStack) > 0 :
+                # stack is not empty and the element of the exppresion is not a comma
+                if len(operatorStack) > 0 and elem != ",":
                     operatorStack.pop()
+
+                if elem == "," :
+                    mathExp.append(elem)
 
                 # Add the function name from the operator stack to the new list for 
                 # mathematical expression if the operator stack is not empty and
