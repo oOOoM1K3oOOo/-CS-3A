@@ -100,15 +100,36 @@ class Calculator :
     # be x (previous result), or e, or Pi), a factorial (factNum), or a 
     # variable/function name (var). The fifth group (comma) is the optional comma to 
     # account the complex arguments for the functions. The sixth group (parRight) is an
-    # optional opening parentheses whereas the seventh group (factOper) is an optional
+    # optional closing parentheses whereas the seventh group (factOper) is an optional
     # factorial sign to account complex factorial expressions
-    REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
+    REGULAR_COMPLX_MATH_VER_1 = r"(?P<memOper>M([+-RC]))|" + \
             r"((?P<operator>[-+/*^%])?\s*" + \
             r"(?P<parLeft>\()?\s*" + \
             r"(((?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
             r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
             r"((?P<factNum>\d+)!)|" + \
             r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
+            r"(?P<var>\w+))\s*" + \
+            r"((?P<comma>,)|" + \
+            r"(?P<parRight>\)))?" + \
+            r"(?P<factOper>!)?)"
+
+    # Regular expression for matching complex arithmetic operations whose operands can 
+    # be mathematical functions or factorials and whose order is defined by the 
+    # parentheses. First group of the expression (memOper) is the pattern for matching 
+    # memory operations. The second group (parLeft) is an optional opening parentheses
+    # which define the order of the mathematical operations. The third group ([-+/*^%])
+    # (operator), optional, is the operator whereas the fourth – an operand that is a
+    # number (operand, which could also be x (previous result), or e, or Pi). The fifth 
+    # group (var) a is a function name that will be added to the mathematical expression
+    # stack. The sixth group (comma) is the optional comma to account the complex
+    # arguments for the log(), round(), and arbt() functions. The seventh group 
+    # (parRight) is an optional closing parentheses whereas the eigth group 
+    # (factOper) is an optional factorial sign to account factorial expressions
+    REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
+            r"((?P<operator>[-+/*^%])?\s*" + \
+            r"(?P<parLeft>\()?\s*" + \
+            r"((?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
             r"((?P<comma>,)|" + \
             r"(?P<parRight>\)))?" + \
@@ -181,7 +202,7 @@ class Calculator :
             print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
             print()
 
-()        return result
+        return result
 
     ## Calculates the arithmetic expression
     #  @param num1 first operand
@@ -411,8 +432,10 @@ class Calculator :
     #  @return list of operands and operators
     #
     def retrieveExprList(self, entry) :
-        mathExp = []
         endPos = 0
+        isNotValidEntry = False
+        varName = ""
+        mathExp = []
 
         # Find the starting position of the first match
         startPos = self._reComplx.match(entry).start()
@@ -441,28 +464,28 @@ class Calculator :
                         # Add the opening parentheses to the mathematical expression stack
                         mathExp.append(token["parLeft"])
 
-                    # Verify if a function with arguments is present in the expression
-                    if token["func"] is not None :
-                        # Convert the values of keys arg1 and arg2 in dictionary to float
-                        arg1 = self.convertToFloat(token["arg1"])
-                        arg2 = self.convertToFloat(token["arg2"])
-
-                        # Compute the mathematical function with given arguments
-                        operand = self.calcFunc(token["func"], arg1, arg2)
-
-                        # Add the calculated result to the mathematical expression stack
-                        mathExp.append(operand)
-                    # Verify if a factorial is present in the expression
-                    elif token["factNum"] is not None :
-                        # Convert the value of the key factNum1 in dictionary to float
-                        num = self.convertToFloat(token["factNum"])
-
-                        # Compute the factorial with the given number
-                        operand = self.calcFact(num)
-                        
-                        # Add the calculated factorial to the mathematical expression stack
-                        mathExp.append(operand)
-                    # Verify if a number are present in the expression
+                    ## # Verify if a function with arguments is present in the expression
+                    ## if token["func"] is not None :
+                    ##     # Convert the values of keys arg1 and arg2 in dictionary to float
+                    ##     arg1 = self.convertToFloat(token["arg1"])
+                    ##     arg2 = self.convertToFloat(token["arg2"])
+## 
+                    ##     # Compute the mathematical function with given arguments
+                    ##     operand = self.calcFunc(token["func"], arg1, arg2)
+## 
+                    ##     # Add the calculated result to the mathematical expression stack
+                    ##     mathExp.append(operand)
+                    ## # Verify if a factorial is present in the expression
+                    ## elif token["factNum"] is not None :
+                    ##     # Convert the value of the key factNum1 in dictionary to float
+                    ##     num = self.convertToFloat(token["factNum"])
+## 
+                    ##     # Compute the factorial with the given number
+                    ##     operand = self.calcFact(num)
+                    ##     
+                    ##     # Add the calculated factorial to the mathematical expression stack
+                    ##     mathExp.append(operand)
+                    ## # Verify if a number are present in the expression
                     elif token["num"] is not None :
                         # Convert the value of key num1 in dictionary to float
                         operand = self.convertToFloat(token["num"])
@@ -475,10 +498,18 @@ class Calculator :
                         # Verify if a function name is included in the dictionary of 
                         # functions
                         if token["var"] in self.FUNCTIONS :
+                            varName = token["var"]
+
                             # Add the function name to the mathematical expression stack
                             mathExp.append(token["var"])
                         else :
                             raise ValueError("Error: Invalid operand: %s" % token["var"])
+                    
+                    if token["comma"] is not None :
+                        if varName != "log" and varName != "round" and varName != "abrt" :
+                            isNotValidEntry = True
+                        else : 
+                            isNotValidEntry = False
 
                     # Verify if the closing parentheses are present in the expression
                     if token["parRight"] is not None :
@@ -493,7 +524,7 @@ class Calculator :
         
         # Verify that the starting and ending positions of the mathematical expression
         # match the start and end of the entry, respectively
-        if startPos >= 0 and endPos < len(entry) :
+        if isNotValidEntry or startPos >= 0 and endPos < len(entry) :
             # Clear the mathematical expression stack
             mathExp.clear()
 
