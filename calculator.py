@@ -464,29 +464,8 @@ class Calculator :
                         # Add the opening parentheses to the mathematical expression stack
                         mathExp.append(token["parLeft"])
 
-                    ## # Verify if a function with arguments is present in the expression
-                    ## if token["func"] is not None :
-                    ##     # Convert the values of keys arg1 and arg2 in dictionary to float
-                    ##     arg1 = self.convertToFloat(token["arg1"])
-                    ##     arg2 = self.convertToFloat(token["arg2"])
-## 
-                    ##     # Compute the mathematical function with given arguments
-                    ##     operand = self.calcFunc(token["func"], arg1, arg2)
-## 
-                    ##     # Add the calculated result to the mathematical expression stack
-                    ##     mathExp.append(operand)
-                    ## # Verify if a factorial is present in the expression
-                    ## elif token["factNum"] is not None :
-                    ##     # Convert the value of the key factNum1 in dictionary to float
-                    ##     num = self.convertToFloat(token["factNum"])
-## 
-                    ##     # Compute the factorial with the given number
-                    ##     operand = self.calcFact(num)
-                    ##     
-                    ##     # Add the calculated factorial to the mathematical expression stack
-                    ##     mathExp.append(operand)
-                    ## # Verify if a number are present in the expression
-                    elif token["num"] is not None :
+                    # Verify if a number are present in the expression
+                    if token["num"] is not None :
                         # Convert the value of key num1 in dictionary to float
                         operand = self.convertToFloat(token["num"])
 
@@ -498,6 +477,7 @@ class Calculator :
                         # Verify if a function name is included in the dictionary of 
                         # functions
                         if token["var"] in self.FUNCTIONS :
+                            # Store the function name for further comma validation
                             varName = token["var"]
 
                             # Add the function name to the mathematical expression stack
@@ -505,11 +485,17 @@ class Calculator :
                         else :
                             raise ValueError("Error: Invalid operand: %s" % token["var"])
                     
+                    # Verify if a comma is present in the current match
                     if token["comma"] is not None :
+                        # Verify if the function is not a function which takes two arguments
                         if varName != "log" and varName != "round" and varName != "abrt" :
+                            # Raise the flag for improper comma placement
                             isNotValidEntry = True
                         else : 
                             isNotValidEntry = False
+                        
+                        # Clear variable which stores the function name
+                        varName = ""
 
                     # Verify if the closing parentheses are present in the expression
                     if token["parRight"] is not None :
