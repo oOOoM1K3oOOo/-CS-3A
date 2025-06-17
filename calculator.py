@@ -19,16 +19,15 @@ def main() :
 
     calc = Calculator()
     
-    #print("This program is a calculator which computes simple mathematical")
-    #print("expressions and functions.") 
-    #print()
-    #print("* For the information about legal syntax and supported functions write")
-    #print("* \"help\" in the command line.")
-    #print()
-    #print("* To exit from the calculator, write \"quit\" in the command line.")
-    #print()
-
-    #calc.help()
+    print("This program is a calculator which computes simple mathematical")
+    print("expressions and functions.") 
+    rint()
+    rint("* For the information about legal syntax and supported functions write")
+    rint("* \"help\" in the command line.")
+    rint()
+    rint("* To exit from the calculator, write \"quit\" in the command line.")
+    rint()
+    calc.help()
 
     while entry != "quit" :
         entry = input("[x = %s]: " % calc.getX())
