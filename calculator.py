@@ -128,11 +128,11 @@ class Calculator :
     # (factOper) is an optional factorial sign to account factorial expressions
     REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
             r"((?P<operator>[-+/*^%])?\s*" + \
-            r"(?P<parLeft>\()?\s*" + \
+            r"(?P<parLeft>\(+)?\s*" + \
             r"((?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
-            r"((?P<comma>,)|" + \
-            r"(?P<parRight>\)))?" + \
+            r"(?P<parRight>\)+)?" + \
+            r"(?P<comma>,)?" + \
             r"(?P<factOper>!)?)"
 
     # Regular expression for matching memory operations. "M([+-RC])" - results in 
@@ -192,7 +192,7 @@ class Calculator :
 
             print(mathExp)
 
-            if len(mathExp) > 0  :
+            if len(mathExp) >= 2  :
                 isTwoArgs = False 
 
                 operands = []
@@ -230,8 +230,9 @@ class Calculator :
                         # Verify that the function has two arguments in the mathematical
                         # expression list
                         if isTwoArgs :
-                            # Retireve the second argument of the function
+                            # Retrieve the second argument of the function
                             arg2 = operands.pop()
+                            
                             # Clear the flag for retrieving two arguments from the list
                             isTwoArgs = False
 
@@ -244,10 +245,10 @@ class Calculator :
     
                 result = operands.pop()
                 self._x = result
-        else :
-            print()
-            print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
-            print()
+            else :
+                print()
+                print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
+                print()
 
         return result
     
@@ -287,8 +288,9 @@ class Calculator :
 
                     # Verify if the opening parentheses are present in the expression
                     if token["parLeft"] is not None :
-                        # Add the opening parentheses to the mathematical expression stack
-                        mathExp.append(token["parLeft"])
+                        for pos in range(len(token["parLeft"])) :
+                            # Add the opening parentheses to the mathematical expression stack
+                            mathExp.append(token["parLeft"][pos])
 
                     # Verify if a number are present in the expression
                     if token["num"] is not None :
@@ -311,6 +313,12 @@ class Calculator :
                         else :
                             raise ValueError("Invalid function name: %s" % token["var"])
                     
+                    # Verify if the closing parentheses are present in the expression
+                    if token["parRight"] is not None :
+                        for pos in range(len(token["parRight"])) :
+                            # Add the closing parentheses to the mathematical expression stack
+                            mathExp.append(token["parRight"][pos])
+
                     # Verify if a comma is present in the current match
                     if token["comma"] is not None :
                         # Verify if the function is not a function which takes two arguments
@@ -327,11 +335,6 @@ class Calculator :
                         # was valid
                         if not isNotValidEntry : 
                             mathExp.append(token["comma"])
-
-                    # Verify if the closing parentheses are present in the expression
-                    if token["parRight"] is not None :
-                        # Add the closing parentheses to the mathematical expression stack
-                        mathExp.append(token["parRight"])
 
                     # Verify if the factorial sign for the complex expression is present
                     # in the expression
@@ -539,7 +542,7 @@ class Calculator :
                 # While the operator stack is not empty and the last element of the stack 
                 # is an operator, add the operator from the operator stack to the new list for 
                 # mathematical expression in reverse Polish notation
-                while len(operatorStack) > 0 and operatorStack[-1] != "(":
+                while len(operatorStack) > 0 and (operatorStack[-1] not in self.FUNCTIONS and operatorStack[-1] != "(" ):
                     mathExp.append(operatorStack.pop())
                 
                 # Pop the opening parentheses from the operator stack if the operator 
@@ -553,7 +556,7 @@ class Calculator :
                 # Add the function name from the operator stack to the new list for 
                 # mathematical expression if the operator stack is not empty and
                 # the last element of the stack is a function name
-                if len(operatorStack) > 0 and operatorStack[-1] in self.FUNCTIONS :
+                if len(operatorStack) > 0 and operatorStack[-1] in self.FUNCTIONS and elem != ",":
                     mathExp.append(operatorStack.pop())
             # Verify that the element of the expression is an operator
             elif elem in self.OPERATOR_PREC :
