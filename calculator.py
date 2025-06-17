@@ -95,23 +95,20 @@ class Calculator :
     # parentheses. First group of the expression (memOper) is the pattern for matching 
     # memory operations. The second group (parLeft) is an optional opening parentheses
     # which define the order of the mathematical operations. The third group ([-+/*^%])
-    # (operator), optional, is the operator whereas the fourth – an 
-    # operand that is either a function (func), a number (operand, which could also 
-    # be x (previous result), or e, or Pi), a factorial (factNum), or a 
-    # variable/function name (var). The fifth group (comma) is the optional comma to 
-    # account the complex arguments for the functions. The sixth group (parRight) is an
-    # optional opening parentheses whereas the seventh group (factOper) is an optional
-    # factorial sign to account complex factorial expressions
-    REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
-            r"((?P<operator>[-+/*^%])?\s*" + \
-            r"(?P<parLeft>\()?\s*" + \
-            r"(((?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
-            r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
-            r"((?P<factNum>\d+)!)|" + \
-            r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
+    # (operator), optional, is the operator whereas the fourth – an operand that is a
+    # number (operand, which could also be x (previous result), or e, or Pi). The fifth 
+    # group (var) a is a function name that will be added to the mathematical expression
+    # stack. The sixth group (comma) is the optional comma to account the complex
+    # arguments for the log(), round(), and arbt() functions. The seventh group 
+    # (parRight) is an optional closing parentheses whereas the eigth group 
+    # (factOper) is an optional factorial sign to account factorial expressions
+    REGULAR_COMPLX_MATH = r"((?P<memOper>M[+-RC])(\s*)?)|" + \
+            r"(((?P<operator>[-+/*^%])\s*)?" + \
+            r"((?P<parLeft>\(+)\s*)?" + \
+            r"((?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
-            r"((?P<comma>,)|" + \
-            r"(?P<parRight>\)))?" + \
+            r"(?P<parRight>\)+)?" + \
+            r"(?P<comma>,)?" + \
             r"(?P<factOper>!)?)"
 
     # Regular expression for matching memory operations. "M([+-RC])" - results in 
@@ -134,7 +131,7 @@ class Calculator :
         "sqrt" : lambda arg1: math.sqrt(arg1),
         "log" : lambda arg1, arg2: math.log(arg1, arg2),
         "ln" : lambda arg1: math.log(arg1),
-        "round" : lambda arg1, arg2: round(arg1, arg2),
+        "round" : lambda arg1, arg2: round(arg1, int(arg2)),
         "rad" : lambda arg1: math.radians(arg1),
         "deg" : lambda arg1: math.degrees(arg1),
         "bin" : lambda arg1: bin(arg1),
@@ -153,16 +150,8 @@ class Calculator :
         self._x = 0.0         # Stored result
         self._memory = 0.0    # Memory cell
 
-        # Compiles the regex pattern for arithmetic expressions
-        self._reArithm = re.compile(self.REGULAR_MATH)
         # Compiles the regex pattern for complex arithmetic expressions
         self._reComplx = re.compile(self.REGULAR_COMPLX_MATH)
-        # Compiles the regex pattern for functions  
-        self._reFunc = re.compile(self.REGULAR_FUNC)
-        # Compiles the regex pattern for factorial
-        self._reFact = re.compile(self.REGULAR_FACT)
-        # Compiles the regex pattern for memory cell
-        self._reMem = re.compile(self.REGULAR_MEM)
 
     ## Computes the mathematical expression 
     #  @param entry mathematical expression
@@ -173,15 +162,163 @@ class Calculator :
         mathExp = []        # Dictionary of mathematical expression
 
         if self._reComplx.match(entry) :
+            # Retrieve the mathematical expression converted to a listM+
             mathExp = self.retrieveExprList(entry)
 
-            
-        else :
+            if len(mathExp) >= 2  :
+                isTwoArgs = False 
+
+                operands = []
+
+                # Convert the mathematical expression (in infix notaion) to reverse 
+                # Polish (postfix) notation 
+                mathExp = self.convertToPolish(mathExp)
+                
+                for elem in mathExp:
+                    # Add the operand to the operand stack if it is a number
+                    if elem not in self.OPERATOR_PREC and elem not in self.FUNCTIONS and elem != ",":
+                        operands.append(elem)
+                    elif elem in self.OPERATOR_PREC :
+                        if elem == "!" :
+                            # Retrieve the number for factorial function
+                            factNum = operands.pop()
+
+                            # Add the result of the factorial operation to the operands stack
+                            operands.append(self.calcFact(factNum))
+                        else :
+                            # Retrieve the first and second operand of the arithmetic expression
+                            rightValue = operands.pop()
+                            leftValue = operands.pop()
+
+                            # Add the result of the arithmetic operation to the operand stack
+                            operands.append(self.calcArithmExpr(leftValue, elem, rightValue))
+                    elif elem == "," :
+                        isTwoArgs = True
+                    else :
+                        arg2 = None 
+
+                        # Verify that the function has two arguments in the mathematical
+                        # expression list
+                        if isTwoArgs :
+                            # Retrieve the second argument of the function
+                            arg2 = operands.pop()
+                            
+                            # Clear the flag for retrieving two arguments from the list
+                            isTwoArgs = False
+
+                        # Retrieve the first argument of the function
+                        arg1 = operands.pop()
+                        
+                        # Add the result of the function with two agruments to the 
+                        # operand stack
+                        operands.append(self.calcFunc(elem, arg1, arg2))
+    
+                result = operands.pop()
+                self._x = result
+
+        return result
+    
+    ## Parses through the mathematical expression and converts it to a list of 
+    ## operands and operators
+    #  @param self reference to the instance of a class
+    #  @param entry mathematical expression
+    #  @return list of operands and operators
+    #
+    def retrieveExprList(self, entry) :
+        endPos = 0
+        isNotValidEntry = False
+        varName = ""
+        mathExp = []
+
+        # Find the starting position of the first match
+        startPos = self._reComplx.match(entry).start()
+
+        if startPos == 0 :
+            for item in self._reComplx.finditer(entry) :
+                # Find the ending position of the last match
+                endPos = item.end()
+
+                # Retrieve the dictionary with the named subgroups of the match
+                token = item.groupdict()
+                
+                # Verify if the matched string matches pattern for memory operations
+                if token["memOper"] is not None :
+                    # Perform the memory operation with the given operation name 
+                    self.performMemOper(token["memOper"])
+                else :
+
+                    # Verify if the operator is present in the expression
+                    if token["operator"] : 
+                        # Add the operator to the mathematical expression stack
+                        mathExp.append(token["operator"])
+
+                    # Verify if the opening parentheses are present in the expression
+                    if token["parLeft"] is not None :
+                        for pos in range(len(token["parLeft"])) :
+                            # Add the opening parentheses to the mathematical expression stack
+                            mathExp.append(token["parLeft"][pos])
+
+                    # Verify if a number are present in the expression
+                    if token["num"] is not None :
+                        # Convert the value of key num1 in dictionary to float
+                        operand = self.convertToFloat(token["num"])
+
+                        # Add the number to the mathematical expression stack
+                        mathExp.append(operand)
+                    # Verify if a function name of complex expression are present in the 
+                    # expression
+                    elif token["var"] is not None :
+                        # Verify if a function name is included in the dictionary of 
+                        # functions
+                        if token["var"] in self.FUNCTIONS :
+                            # Store the function name for further comma validation
+                            varName = token["var"]
+
+                            # Add the function name to the mathematical expression stack
+                            mathExp.append(token["var"])
+                        else :
+                            raise ValueError("Invalid function name: %s" % token["var"])
+                    
+                    # Verify if the closing parentheses are present in the expression
+                    if token["parRight"] is not None :
+                        for pos in range(len(token["parRight"])) :
+                            # Add the closing parentheses to the mathematical expression stack
+                            mathExp.append(token["parRight"][pos])
+
+                    # Verify if a comma is present in the current match
+                    if token["comma"] is not None :
+                        # Verify if the function is not a function which takes two arguments
+                        if varName != "log" and varName != "round" and varName != "abrt" :
+                            # Raise the flag for improper comma placement
+                            isNotValidEntry = True
+                        else : 
+                            isNotValidEntry = False
+                        
+                        # Clear variable which stores the function name
+                        varName = ""
+
+                        # Add comma to the mathematical expression stack if the entry 
+                        # was valid
+                        if not isNotValidEntry : 
+                            mathExp.append(token["comma"])
+
+                    # Verify if the factorial sign for the complex expression is present
+                    # in the expression
+                    if token["factOper"] is not None :
+                        # Add the factorial sign to the mathematical expression stack
+                        mathExp.append(token["factOper"])
+        
+        # Verify that the starting and ending positions of the mathematical expression
+        # match the start and end of the entry, respectively
+        if isNotValidEntry or startPos >= 0 and endPos < len(entry) :
+            # Clear the mathematical expression stack
+            mathExp.clear()
+
             print()
             print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
             print()
 
-()        return result
+        return mathExp
 
     ## Calculates the arithmetic expression
     #  @param num1 first operand
@@ -191,10 +328,6 @@ class Calculator :
     #
     def calcArithmExpr(self, num1, operator, num2 = None) :
         result = self._x
-
-        ##
-        #  Account that number of operators is greater than number operands
-        ##
 
         match operator : 
             case "+":  
@@ -277,6 +410,9 @@ class Calculator :
                 case "round" :
                     if num2 is None :
                         num2 = 2
+                    elif num2 % 1 != 0 :
+                        raise ValueError("Error: the second agrument for round() " +  
+                                         "function must be an integer")
 
                     result = self.FUNCTIONS[function](num1, num2)
                 case "abrt":
@@ -317,7 +453,7 @@ class Calculator :
                 print()
             case _: 
                 print()
-                print("Error: wrong expression:", operation)
+                print("Error: Wrong expression:", operation)
                 print()
 
     ## Converts the value of a string to float
@@ -358,27 +494,36 @@ class Calculator :
         operatorStack = []
 
         for elem in arithmExpr :
-            # Verify that the element of the expression is a number       
-            if self.isFloat(elem) :
-                # Add to the new list for mathematical expression in reverse Polish
-                # notation             
-                mathExp.append(elem)
+            # Verify that the element of the expression is the function name
+            if elem in self.FUNCTIONS :
+                # Add the function name to the operator stack
+                operatorStack.append(elem)
             # Verify that the element of the expression is the opening parentheses 
             elif elem == "(" :
                 # Add the opening parentheses to the operator stack
                 operatorStack.append(elem)
-            # Verify that the element of the expression is the closing parentheses
-            elif elem == ")" :
+            # Verify that the element of the expression is the closing parentheses 
+            # or a comma
+            elif elem == ")" or elem == "," : 
                 # While the operator stack is not empty and the last element of the stack 
                 # is an operator, add the operator from the operator stack to the new list for 
                 # mathematical expression in reverse Polish notation
-                while len(operatorStack) > 0 and operatorStack[-1] != "(" :
+                while len(operatorStack) > 0 and (operatorStack[-1] not in self.FUNCTIONS and operatorStack[-1] != "(" ):
                     mathExp.append(operatorStack.pop())
                 
                 # Pop the opening parentheses from the operator stack if the operator 
-                # stack is not empty 
-                if len(operatorStack) > 0 :
+                # stack is not empty and the element of the exppresion is not a comma
+                if len(operatorStack) > 0 and elem != ",":
                     operatorStack.pop()
+
+                if elem == "," :
+                    mathExp.append(elem)
+
+                # Add the function name from the operator stack to the new list for 
+                # mathematical expression if the operator stack is not empty and
+                # the last element of the stack is a function name
+                if len(operatorStack) > 0 and operatorStack[-1] in self.FUNCTIONS and elem != ",":
+                    mathExp.append(operatorStack.pop())
             # Verify that the element of the expression is an operator
             elif elem in self.OPERATOR_PREC :
                 # While the operator stack is not empty and the current operator of the 
@@ -390,8 +535,11 @@ class Calculator :
                 
                 # Add the current operator to the operator stack
                 operatorStack.append(elem)
+            # Verify that the element of the expression is a number       
             else :  
-                raise OSError("Error: Invalid expression:", elem)
+                # Add to the new list for mathematical expression in reverse Polish
+                # notation             
+                mathExp.append(elem)
 
         # If the operator stack is not empty and the element is not the opening 
         # parentheses, add the operators from the operator stack to the new list for 
@@ -402,105 +550,6 @@ class Calculator :
             if operator != "(" :
                 mathExp.append(operator)
     
-        return mathExp
-    
-    ## Parses through the mathematical expression and converts it to a list of 
-    ## operands and operators
-    #  @param self reference to the instance of a class
-    #  @param entry mathematical expression
-    #  @return list of operands and operators
-    #
-    def retrieveExprList(self, entry) :
-        mathExp = []
-        endPos = 0
-
-        # Find the starting position of the first match
-        startPos = self._reComplx.match(entry).start()
-
-        if startPos == 0 :
-            for item in self._reComplx.finditer(entry) :
-                # Find the ending position of the last match
-                endPos = item.end()
-
-                # Retrieve the dictionary with the named subgroups of the match
-                token = item.groupdict()
-                
-                # Verify if the matched string matches pattern for memory operations
-                if token["memOper"] is not None :
-                    # Perform the memory operation with the given operation name 
-                    self.performMemOper(token["memOper"])
-                else :
-
-                    # Verify if the operator is present in the expression
-                    if token["operator"] : 
-                        # Add the operator to the mathematical expression stack
-                        mathExp.append(token["operator"])
-
-                    # Verify if the opening parentheses are present in the expression
-                    if token["parLeft"] is not None :
-                        # Add the opening parentheses to the mathematical expression stack
-                        mathExp.append(token["parLeft"])
-
-                    # Verify if a function with arguments is present in the expression
-                    if token["func"] is not None :
-                        # Convert the values of keys arg1 and arg2 in dictionary to float
-                        arg1 = self.convertToFloat(token["arg1"])
-                        arg2 = self.convertToFloat(token["arg2"])
-
-                        # Compute the mathematical function with given arguments
-                        operand = self.calcFunc(token["func"], arg1, arg2)
-
-                        # Add the calculated result to the mathematical expression stack
-                        mathExp.append(operand)
-                    # Verify if a factorial is present in the expression
-                    elif token["factNum"] is not None :
-                        # Convert the value of the key factNum1 in dictionary to float
-                        num = self.convertToFloat(token["factNum"])
-
-                        # Compute the factorial with the given number
-                        operand = self.calcFact(num)
-                        
-                        # Add the calculated factorial to the mathematical expression stack
-                        mathExp.append(operand)
-                    # Verify if a number are present in the expression
-                    elif token["num"] is not None :
-                        # Convert the value of key num1 in dictionary to float
-                        operand = self.convertToFloat(token["num"])
-
-                        # Add the number to the mathematical expression stack
-                        mathExp.append(operand)
-                    # Verify if a function name of complex expression are present in the 
-                    # expression
-                    elif token["var"] is not None :
-                        # Verify if a function name is included in the dictionary of 
-                        # functions
-                        if token["var"] in self.FUNCTIONS :
-                            # Add the function name to the mathematical expression stack
-                            mathExp.append(token["var"])
-                        else :
-                            raise ValueError("Error: Invalid operand: %s" % token["var"])
-
-                    # Verify if the closing parentheses are present in the expression
-                    if token["parRight"] is not None :
-                        # Add the closing parentheses to the mathematical expression stack
-                        mathExp.append(token["parRight"])
-
-                    # Verify if the factorial sign for the complex expression is present
-                    # in the expression
-                    if token["factOper"] is not None :
-                        # Add the factorial sign to the mathematical expression stack
-                        mathExp.append(token["factOper"])
-        
-        # Verify that the starting and ending positions of the mathematical expression
-        # match the start and end of the entry, respectively
-        if startPos >= 0 and endPos < len(entry) :
-            # Clear the mathematical expression stack
-            mathExp.clear()
-
-            print()
-            print("Invalid expression:", entry)
-            print()
-
         return mathExp
     
     ## Validates that the string is a rational number
