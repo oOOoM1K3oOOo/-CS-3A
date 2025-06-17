@@ -1,10 +1,10 @@
 #   Problem: Create Simple Calculator
 #   Description: The program computes the complex mathematical expressions with multiple
-#       operands which can be numbers, mathematical functions, or factorial entered by
-#       the user. After the user enters the mathematical expression, the program
-#       validates and evaluates the user entry with the regular expressions set in the
-#       Calculator class. If the expression was found to be valid, the program then 
-#       computes and stores the result inside the Calculator class. 
+#       operands which can be a number, a mathematical function, or a factorial. 
+#       After the user enters the mathematical expression, the program validates and
+#       evaluates the user entry with the regular expressions set in the Calculator 
+#       class. If the expression was found to be valid, the program then computes and
+#       stores the result inside the Calculator class and prints it to the console. 
 #       In addition, the Calculator class stores the value of the memory cell that is
 #       accessed through the memory commands (M+, M-, MC, and MR).
 #   
@@ -27,7 +27,7 @@ def main() :
     print()
     print("* To exit from the calculator, write \"quit\" in the command line.")
     print()
-    
+
     calc.help()
 
     while entry != "quit" :
