@@ -95,30 +95,6 @@ class Calculator :
     # parentheses. First group of the expression (memOper) is the pattern for matching 
     # memory operations. The second group (parLeft) is an optional opening parentheses
     # which define the order of the mathematical operations. The third group ([-+/*^%])
-    # (operator), optional, is the operator whereas the fourth – an 
-    # operand that is either a function (func), a number (operand, which could also 
-    # be x (previous result), or e, or Pi), a factorial (factNum), or a 
-    # variable/function name (var). The fifth group (comma) is the optional comma to 
-    # account the complex arguments for the functions. The sixth group (parRight) is an
-    # optional closing parentheses whereas the seventh group (factOper) is an optional
-    # factorial sign to account complex factorial expressions
-    REGULAR_COMPLX_MATH_VER_1 = r"(?P<memOper>M([+-RC]))|" + \
-            r"((?P<operator>[-+/*^%])?\s*" + \
-            r"(?P<parLeft>\()?\s*" + \
-            r"(((?P<func>\w+)\s*\(\s*(?P<arg1>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))" + \
-            r"\s*[,]?\s*(?P<arg2>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))?\s*\))|" + \
-            r"((?P<factNum>\d+)!)|" + \
-            r"(?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
-            r"(?P<var>\w+))\s*" + \
-            r"((?P<comma>,)|" + \
-            r"(?P<parRight>\)))?" + \
-            r"(?P<factOper>!)?)"
-
-    # Regular expression for matching complex arithmetic operations whose operands can 
-    # be mathematical functions or factorials and whose order is defined by the 
-    # parentheses. First group of the expression (memOper) is the pattern for matching 
-    # memory operations. The second group (parLeft) is an optional opening parentheses
-    # which define the order of the mathematical operations. The third group ([-+/*^%])
     # (operator), optional, is the operator whereas the fourth – an operand that is a
     # number (operand, which could also be x (previous result), or e, or Pi). The fifth 
     # group (var) a is a function name that will be added to the mathematical expression
@@ -126,9 +102,9 @@ class Calculator :
     # arguments for the log(), round(), and arbt() functions. The seventh group 
     # (parRight) is an optional closing parentheses whereas the eigth group 
     # (factOper) is an optional factorial sign to account factorial expressions
-    REGULAR_COMPLX_MATH = r"(?P<memOper>M([+-RC]))|" + \
-            r"((?P<operator>[-+/*^%])?\s*" + \
-            r"(?P<parLeft>\(+)?\s*" + \
+    REGULAR_COMPLX_MATH = r"((?P<memOper>M[+-RC])(\s*)?)|" + \
+            r"(((?P<operator>[-+/*^%])\s*)?" + \
+            r"((?P<parLeft>\(+)\s*)?" + \
             r"((?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
             r"(?P<parRight>\)+)?" + \
@@ -176,8 +152,6 @@ class Calculator :
 
         # Compiles the regex pattern for complex arithmetic expressions
         self._reComplx = re.compile(self.REGULAR_COMPLX_MATH)
-        # Compiles the regex pattern for memory cell
-        self._reMem = re.compile(self.REGULAR_MEM)
 
     ## Computes the mathematical expression 
     #  @param entry mathematical expression
@@ -188,9 +162,8 @@ class Calculator :
         mathExp = []        # Dictionary of mathematical expression
 
         if self._reComplx.match(entry) :
+            # Retrieve the mathematical expression converted to a listM+
             mathExp = self.retrieveExprList(entry)
-
-            print(mathExp)
 
             if len(mathExp) >= 2  :
                 isTwoArgs = False 
@@ -200,10 +173,7 @@ class Calculator :
                 # Convert the mathematical expression (in infix notaion) to reverse 
                 # Polish (postfix) notation 
                 mathExp = self.convertToPolish(mathExp)
-
-                print(mathExp)
                 
-
                 for elem in mathExp:
                     # Add the operand to the operand stack if it is a number
                     if elem not in self.OPERATOR_PREC and elem not in self.FUNCTIONS and elem != ",":
@@ -245,10 +215,6 @@ class Calculator :
     
                 result = operands.pop()
                 self._x = result
-            else :
-                print()
-                print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
-                print()
 
         return result
     
@@ -349,7 +315,7 @@ class Calculator :
             mathExp.clear()
 
             print()
-            print("Invalid expression:", entry)
+            print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
             print()
 
         return mathExp
@@ -487,7 +453,7 @@ class Calculator :
                 print()
             case _: 
                 print()
-                print("Error: wrong expression:", operation)
+                print("Error: Wrong expression:", operation)
                 print()
 
     ## Converts the value of a string to float
