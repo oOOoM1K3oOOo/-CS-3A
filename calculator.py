@@ -152,6 +152,8 @@ class Calculator :
 
         # Compiles the regex pattern for complex arithmetic expressions
         self._reComplx = re.compile(self.REGULAR_COMPLX_MATH)
+        # Compiles the regex pattern for memory cell
+        self._reMem = re.compile(self.REGULAR_MEM)
 
     ## Computes the mathematical expression 
     #  @param entry mathematical expression
@@ -159,13 +161,13 @@ class Calculator :
     #
     def compute(self, entry) :
         result = 0.0
-        mathExp = []        # Dictionary of mathematical expression
+        mathExp = []        # Dictionary of a mathematical expression
 
         if self._reComplx.match(entry) :
-            # Retrieve the mathematical expression converted to a listM+
+            # Retrieve the mathematical expression converted to a list
             mathExp = self.retrieveExprList(entry)
 
-            if len(mathExp) >= 2  :
+            if len(mathExp) >= 3 :
                 isTwoArgs = False 
 
                 operands = []
@@ -176,7 +178,8 @@ class Calculator :
                 
                 for elem in mathExp:
                     # Add the operand to the operand stack if it is a number
-                    if elem not in self.OPERATOR_PREC and elem not in self.FUNCTIONS and elem != ",":
+                    if elem not in self.OPERATOR_PREC and elem not in self.FUNCTIONS and \
+                        elem != ",":
                         operands.append(elem)
                     elif elem in self.OPERATOR_PREC :
                         if elem == "!" :
@@ -192,6 +195,8 @@ class Calculator :
 
                             # Add the result of the arithmetic operation to the operand stack
                             operands.append(self.calcArithmExpr(leftValue, elem, rightValue))
+                    # Raise the flag that two numbers need to be drawn from the operand 
+                    # stack for the computation of mathematical function
                     elif elem == "," :
                         isTwoArgs = True
                     else :
@@ -215,6 +220,11 @@ class Calculator :
     
                 result = operands.pop()
                 self._x = result
+            elif len(mathExp) > 0 :
+                self.printMessages("Error: The size of the expression is smaller " + \
+                                   "than minimum (3).")
+        else :
+            self.printMessages("Error: Unknown format of the expression: %s" % entry)
 
         return result
     
@@ -248,7 +258,7 @@ class Calculator :
                 else :
 
                     # Verify if the operator is present in the expression
-                    if token["operator"] : 
+                    if token["operator"] is not None : 
                         # Add the operator to the mathematical expression stack
                         mathExp.append(token["operator"])
 
@@ -277,7 +287,8 @@ class Calculator :
                             # Add the function name to the mathematical expression stack
                             mathExp.append(token["var"])
                         else :
-                            raise ValueError("Invalid function name: %s" % token["var"])
+                            raise ValueError("Error: Unknown operand or function " + \
+                                             "name: %s" % token["var"])
                     
                     # Verify if the closing parentheses are present in the expression
                     if token["parRight"] is not None :
@@ -288,7 +299,7 @@ class Calculator :
                     # Verify if a comma is present in the current match
                     if token["comma"] is not None :
                         # Verify if the function is not a function which takes two arguments
-                        if varName != "log" and varName != "round" and varName != "abrt" :
+                        if varName not in "log:round:abrt" :
                             # Raise the flag for improper comma placement
                             isNotValidEntry = True
                         else : 
@@ -310,13 +321,13 @@ class Calculator :
         
         # Verify that the starting and ending positions of the mathematical expression
         # match the start and end of the entry, respectively
-        if isNotValidEntry or startPos >= 0 and endPos < len(entry) :
+        if isNotValidEntry or not self.isValidMathExp(mathExp) or (startPos > 0 and 
+                                                               endPos < len(entry)) :
             # Clear the mathematical expression stack
             mathExp.clear()
 
-            print()
-            print("Error: Unknown input: %s. Enter \"help\" for guidelines." % entry)
-            print()
+            self.printMessages("Error: Unknown input: %s" % entry, 
+                               "       Enter \"help\" for guidelines.")
 
         return mathExp
 
@@ -357,9 +368,7 @@ class Calculator :
             case None : 
                 result = num1
             case _:
-                print() 
-                print("Error: Invalid operator:", operator)
-                print()
+                self.printMessages("Error: Invalid operator: %s" % operator)
         
         return result
     
@@ -410,7 +419,7 @@ class Calculator :
                 case "round" :
                     if num2 is None :
                         num2 = 2
-                    elif num2 % 1 != 0 :
+                    elif not self.isIntegerNum(num2) :
                         raise ValueError("Error: the second agrument for round() " +  
                                          "function must be an integer")
 
@@ -425,9 +434,7 @@ class Calculator :
                 case _:
                     result = self.FUNCTIONS[function](num1)
         else : 
-            print()
-            print("Error: Invalid expression:", function)
-            print()
+            self.printMessages("Error: Invalid expression: %s" % function)
             
         return result
     
@@ -448,13 +455,9 @@ class Calculator :
             case "MC" : 
                 self._memory = 0
             case "MR" : 
-                print()
-                print("M:", self._memory)
-                print()
+                self.printMessages("M: %s" % self._memory)
             case _: 
-                print()
-                print("Error: Wrong expression:", operation)
-                print()
+                self.printMessages("Error: Invalid memory operation: %s" % operation)
 
     ## Converts the value of a string to float
     #  @param self reference to the instance of a class
@@ -483,7 +486,66 @@ class Calculator :
                     num = float(val) 
         
         return num
+    
+    ## Validates that the mathematical expression follows the mathematical rules
+    #  @param self reference to the instance of a class
+    #  @param mathExp mathematical expression
+    #  @return True if the mathematical expression is syntactically correct else False
+    #
+    def isValidMathExp(self, mathExp) :
+        isValidExpr = True         # Flag for verification of the math expression 
+        isFuncFirstArg = False     # Flag to account an argument for function
+        isFuncSecArg = False       # Flag to account second argument for function
+        isComma = False            # Flag to account a comma before the second argument
+
+        for pos in range(1, len(mathExp)) :
+            # If the previous element of the expression is a function, raise the flag
+            # for the first argument
+            if mathExp[pos - 1] in self.FUNCTIONS :
+                isFuncFirstArg = True
+
+                # If a function can take two arguments, raise the flag for the comma and
+                # the second argument
+                if mathExp[pos - 1] in "log:round:abrt" :
+                    isComma = True
+                    isFuncSecArg = True
+
+            # If the flag for the first argument is raised and the current element of 
+            # the expression is a function or a number, clear the flag
+            if isFuncFirstArg and (mathExp[pos] in self.FUNCTIONS or 
+                              self.isFloatNum(mathExp[pos])) :
+                isFuncFirstArg = False
+
+            # If the flag for the comma is raised and the current element of the 
+            # expression is a comma, clear the flag
+            if isFuncSecArg and isComma and mathExp[pos] == "," :
+                isComma = False
+
+            # If the flag for the second argument is raised and the current element of
+            # the expression is a function or a number, clear the flag
+            if not isFuncFirstArg and not isComma and isFuncSecArg and (
+                mathExp[pos] in self.FUNCTIONS or self.isFloatNum(mathExp[pos])) :
+                isFuncSecArg = False
+
+            #if isFuncSecArg and mathExp[pos] == ","
+                
+
+            # Verify if the mathematical expression follows common syntactical errors
+            if ((mathExp[pos] in self.FUNCTIONS or self.isFloatNum(mathExp[pos])) and 
+                    (self.isFloatNum(mathExp[pos - 1]) or mathExp[pos - 1] == ")")) or (
+                    mathExp[pos] in self.FUNCTIONS and pos == len(mathExp) - 1) or (
+                    mathExp[pos - 1] == "(" and mathExp[pos] == ",") or (
+                    mathExp[pos - 1] in self.FUNCTIONS and mathExp[pos] != "(") or (
+                    isFuncFirstArg and mathExp[pos] in self.OPERATOR_PREC and 
+                    mathExp[pos] != "(") or (
+                    not isFuncSecArg and mathExp[pos] == ",") or (
+                    isFuncFirstArg and mathExp[pos] == ",") or (
+                    isFuncSecArg and mathExp[pos - 1] == "," and 
+                    mathExp[pos] in self.OPERATOR_PREC and mathExp[pos] != "(") :
+                isValidExpr = False
         
+        return isValidExpr
+    
     ## Converts the arithmetic expression to reverse Polish notation
     #  @param self reference to the instance of a class
     #  @param arithmExpr original arithmetic expression
@@ -581,6 +643,13 @@ class Calculator :
 
         return isValidEntry
     
+    ## Validates that the number is a rational number
+    #  @param self reference to the instance of a class
+    #  @param num a number
+    #  @return True if num is a rational number else False
+    def isFloatNum(self, num) :
+        return isinstance(num, float)
+    
     ## Validates that the string is an integer
     #  @param self reference to the instance of a class
     #  @param entry a string
@@ -618,8 +687,21 @@ class Calculator :
     #
     def getMemoryVal(self) :
         return self._memory
+    
+    ## Prints a passed message
+    #  @param self reference to the instance of a class
+    #  @param *messages tuple containing all passed messages
+    #  
+    def printMessages(self, *messages) :
+        print()
 
-    ## Provides information about the functionality of the calculator class
+        if len(messages) != 0 :
+            for message in messages :
+                print(message)
+
+        print()
+
+    ## Provides information about the functionality of the Calculator class
     #  @param self reference to the instance of a class
     #
     def help(self) :
