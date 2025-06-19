@@ -103,7 +103,7 @@ class Calculator :
     # (parRight) is an optional closing parentheses whereas the eigth group 
     # (factOper) is an optional factorial sign to account factorial expressions
     REGULAR_COMPLX_MATH = r"((?P<memOper>M[+-RC])(\s*)?)|" + \
-            r"(((?P<operator>[-+/*^%])\s*)?" + \
+            r"(((?P<operator>[-+/*^%])\s+)?" + \
             r"((?P<parLeft>\(+)\s*)?" + \
             r"((?P<num>[+-]?(\d+(\.\d+)?|[xXe]|[pP][iI]))|" + \
             r"(?P<var>\w+))\s*" + \
@@ -134,8 +134,8 @@ class Calculator :
         "round" : lambda arg1, arg2: round(arg1, int(arg2)),
         "rad" : lambda arg1: math.radians(arg1),
         "deg" : lambda arg1: math.degrees(arg1),
-        "bin" : lambda arg1: bin(arg1),
-        "hex" : lambda arg1: hex(arg1),
+        "bin" : lambda arg1: bin(int(arg1)),
+        "hex" : lambda arg1: hex(int(arg1)),
         "neg" : lambda arg1: (-1) * arg1,
         "abrt" : lambda arg1, arg2: arg1 ** (1 / arg2),
         }
@@ -152,8 +152,6 @@ class Calculator :
 
         # Compiles the regex pattern for complex arithmetic expressions
         self._reComplx = re.compile(self.REGULAR_COMPLX_MATH)
-        # Compiles the regex pattern for memory cell
-        self._reMem = re.compile(self.REGULAR_MEM)
 
     ## Computes the mathematical expression 
     #  @param entry mathematical expression
@@ -167,7 +165,7 @@ class Calculator :
             # Retrieve the mathematical expression converted to a list
             mathExp = self.retrieveExprList(entry)
 
-            if len(mathExp) >= 3 :
+            if len(mathExp) >= 2 :
                 isTwoArgs = False 
 
                 operands = []
@@ -421,9 +419,21 @@ class Calculator :
                         num2 = 2
                     elif not self.isIntegerNum(num2) :
                         raise ValueError("Error: the second agrument for round() " +  
-                                         "function must be an integer")
+                                         "function must be an integer.")
 
                     result = self.FUNCTIONS[function](num1, num2)
+                case "bin" : 
+                    if not self.isIntegerNum(num1) :
+                        raise ValueError("Error: the number for bin() function must" +
+                                         "be an integer.")
+                    
+                    result = self.FUNCTIONS[function](num1)
+                case "hex" : 
+                    if not self.isIntegerNum(num1) :
+                        raise ValueError("Error: the number for hex() function must" +
+                                         "be an integer.")
+                    
+                    result = self.FUNCTIONS[function](num1)
                 case "abrt":
                     if num2 is None :
                         raise ValueError("Error: no second argument was passed to abrt() function.")
@@ -533,6 +543,8 @@ class Calculator :
             # Verify if the mathematical expression follows common syntactical errors
             if ((mathExp[pos] in self.FUNCTIONS or self.isFloatNum(mathExp[pos])) and 
                     (self.isFloatNum(mathExp[pos - 1]) or mathExp[pos - 1] == ")")) or (
+                    mathExp[pos - 1] in self.OPERATOR_PREC and 
+                    mathExp[pos - 1] != "(" and pos == 1) or (
                     mathExp[pos] in self.FUNCTIONS and pos == len(mathExp) - 1) or (
                     mathExp[pos - 1] == "(" and mathExp[pos] == ",") or (
                     mathExp[pos - 1] in self.FUNCTIONS and mathExp[pos] != "(") or (
@@ -707,6 +719,7 @@ class Calculator :
     def help(self) :
         print()
         print("Supported functions:")
+        print("\t\t* Note: All operators and operands should be separated by a space.")
         print("\t- Addition: Number + Number")
         print("\t- Subtraction: Number - Number")  
         print("\t- Multiplication: Number * Number") 
