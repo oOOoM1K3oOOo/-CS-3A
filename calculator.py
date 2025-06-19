@@ -47,6 +47,10 @@ def main() :
                     print()
                     print(str(exception))
                     print()
+                except OverflowError as exception :
+                    print()
+                    print(str(exception))
+                    print()
                 except OSError as exception : 
                     print()
                     print(str(exception))
@@ -220,7 +224,7 @@ class Calculator :
                 self._x = result
             elif len(mathExp) > 0 :
                 self.printMessages("Error: The size of the expression is smaller " + \
-                                   "than minimum (3).")
+                                   "than minimum (2).")
         else :
             self.printMessages("Error: Unknown format of the expression: %s" % entry)
 
